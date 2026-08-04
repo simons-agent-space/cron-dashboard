@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "app": "crons",
+  "container_port": 8080,
+  "health_path": "/healthz",
+  "data": {
+    "mount": true,
+    "read_only": true
+  }
+}
