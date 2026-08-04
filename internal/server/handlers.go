@@ -1,0 +1,102 @@
+package server
+
+import (
+	"context"
+	"errors"
+	"log"
+	"net/http"
+
+	"github.com/simons-agent-space/crons/internal/domain"
+)
+
+// indexData is the data the index template renders.
+type indexData struct {
+	Jobs []domain.Job
+}
+
+// jobData is the data the job detail template renders.
+type jobData struct {
+	Job     *domain.Job
+	RunLogs []domain.RunLog
+}
+
+// handleHealthz returns a small JSON payload: "ok" with HTTP 200 when the
+// database can be queried and HTTP 503 otherwise. The body is always JSON
+// because agentctld and container probes expect a parseable response.
+func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+
+	if err := s.repo.Ping(ctx); err != nil {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"status":"degraded"}`))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
+}
+
+// handleIndex renders the overview table of every job.
+func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		s.renderNotFound(w)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+
+	jobs, err := s.repo.ListJobs(ctx)
+	if err != nil {
+		log.Printf("crons: list jobs: %v", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := s.indexTmpl.ExecuteTemplate(w, "layout", indexData{Jobs: jobs}); err != nil {
+		log.Printf("crons: render index: %v", err)
+	}
+}
+
+// handleJobDetail renders the per-job detail page with recent run history.
+func (s *Server) handleJobDetail(w http.ResponseWriter, r *http.Request) {
+	id := jobIDFromPath(r.URL.Path)
+	if id == "" {
+		s.renderNotFound(w)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+
+	job, err := s.repo.GetJob(ctx, id)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			s.renderNotFound(w)
+			return
+		}
+		log.Printf("crons: get job %q: %v", id, err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	logs, err := s.repo.ListRunLogs(ctx, id, defaultRunLogLimit)
+	if err != nil {
+		log.Printf("crons: list run logs for %q: %v", id, err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := s.jobTmpl.ExecuteTemplate(w, "layout", jobData{Job: job, RunLogs: logs}); err != nil {
+		log.Printf("crons: render job %q: %v", id, err)
+	}
+}
+
+// renderNotFound renders the 404 page with HTTP 404 status.
+func (s *Server) renderNotFound(w http.ResponseWriter) {
+	// Set Content-Type before WriteHeader so the response carries the
+	// right MIME type — once WriteHeader fires, the headers are flushed
+	// and Content-Type auto-sniffing is skipped.
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusNotFound)
+	if err := s.notFoundTmpl.ExecuteTemplate(w, "layout", nil); err != nil {
+		log.Printf("crons: render 404: %v", err)
+	}
+}

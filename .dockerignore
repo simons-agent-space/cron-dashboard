@@ -1,0 +1,11 @@
+.git
+.gitattributes
+.github
+.gitignore
+*.md
+LICENSE
+TODO.md
+*.test
+coverage.out
+.DS_Store
+deploy.json

@@ -1,0 +1,42 @@
+{{define "content"}}
+<p><a href="/">&larr; back to overview</a></p>
+<h2>{{.Job.Name}} <small class="muted">({{.Job.JobID}})</small></h2>
+{{if .Job.Description}}<p>{{.Job.Description}}</p>{{end}}
+
+<table>
+<tr><th>Enabled</th><td class="enabled-{{.Job.Enabled}}">{{if .Job.Enabled}}yes{{else}}no{{end}}</td></tr>
+<tr><th>Schedule</th><td><code>{{fmtSchedule .Job}}</code></td></tr>
+<tr><th>Next run</th><td>{{fmtTimeOpt .Job.NextRunAt}}</td></tr>
+<tr><th>Last run</th><td>{{fmtTimeOpt .Job.LastRunAt}}</td></tr>
+<tr><th>Last status</th><td class="status-{{.Job.LastRunStatus}}">{{.Job.LastRunStatus}}</td></tr>
+{{- if .Job.LastError}}
+<tr><th>Last error</th><td><pre>{{.Job.LastError}}</pre></td></tr>
+{{- end}}
+<tr><th>Last duration</th><td>{{fmtDurationMS .Job.LastDurationMS}}</td></tr>
+<tr><th>Consecutive errors</th><td>{{.Job.ConsecutiveErrors}}</td></tr>
+<tr><th>Last delivery</th><td>{{.Job.LastDeliveryStatus}}</td></tr>
+<tr><th>Updated</th><td>{{fmtTimeOpt .Job.UpdatedAt}}</td></tr>
+</table>
+
+<h3>Recent runs</h3>
+{{if .RunLogs}}
+<table>
+<thead>
+<tr><th>When</th><th>Status</th><th>Duration</th><th>Delivery</th><th>Error</th></tr>
+</thead>
+<tbody>
+{{range .RunLogs}}
+<tr>
+    <td>{{fmtTime .Ts}}</td>
+    <td class="status-{{.Status}}">{{.Status}}</td>
+    <td>{{fmtDurationMS .DurationMS}}</td>
+    <td>{{.DeliveryStatus}}</td>
+    <td>{{.Error}}</td>
+</tr>
+{{end}}
+</tbody>
+</table>
+{{else}}
+<p class="empty">No runs recorded yet.</p>
+{{end}}
+{{end}}

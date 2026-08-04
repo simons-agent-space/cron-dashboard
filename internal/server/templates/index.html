@@ -1,0 +1,42 @@
+{{define "content"}}
+{{if .Jobs}}
+<table>
+<thead>
+<tr>
+    <th>Job</th>
+    <th>Schedule</th>
+    <th>Status</th>
+    <th>Next run</th>
+    <th>Last run</th>
+    <th>Last duration</th>
+    <th>Consec. errors</th>
+    <th>Delivery</th>
+</tr>
+</thead>
+<tbody>
+{{range .Jobs}}
+<tr>
+    <td>
+        <a href="/jobs/{{.JobID}}">{{.Name}}</a>
+        <br><small class="muted">{{.JobID}}</small>
+        {{- if .Description}}
+        <br><small>{{.Description}}</small>
+        {{- end}}
+    </td>
+    <td><code>{{fmtSchedule .}}</code></td>
+    <td class="status-{{.LastRunStatus}}">
+        {{.LastRunStatus}}{{if not .Enabled}} <span class="muted">(disabled)</span>{{end}}
+    </td>
+    <td>{{fmtTimeOpt .NextRunAt}}</td>
+    <td>{{fmtTimeOpt .LastRunAt}}</td>
+    <td>{{fmtDurationMS .LastDurationMS}}</td>
+    <td>{{.ConsecutiveErrors}}</td>
+    <td>{{.LastDeliveryStatus}}</td>
+</tr>
+{{end}}
+</tbody>
+</table>
+{{else}}
+<p class="empty">No jobs found.</p>
+{{end}}
+{{end}}
