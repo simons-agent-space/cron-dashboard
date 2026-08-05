@@ -29,9 +29,6 @@ var Required = []RequiredColumn{
 	{Table: "cron_jobs", Column: "enabled"},
 	{Table: "cron_jobs", Column: "schedule_kind"},
 	{Table: "cron_jobs", Column: "next_run_at_ms"},
-	{Table: "cron_run_logs", Column: "job_id"},
-	{Table: "cron_run_logs", Column: "seq"},
-	{Table: "cron_run_logs", Column: "ts"},
 }
 
 // Schema is the result of verifying the database against the adapter.

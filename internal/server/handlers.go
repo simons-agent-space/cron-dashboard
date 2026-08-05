@@ -22,7 +22,7 @@ type jobData struct {
 
 // handleHealthz returns a small JSON payload: "ok" with HTTP 200 when the
 // database can be queried and HTTP 503 otherwise. The body is always JSON
-// because agentctld and container probes expect a parseable response.
+// because container and external probes expect a parseable response.
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()

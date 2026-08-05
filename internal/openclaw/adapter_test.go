@@ -16,6 +16,36 @@ import (
 // deterministic. 2026-08-04T12:00:00Z = 1785940800000 ms.
 const epochMs int64 = 1785940800000
 
+func TestAdapter_MissingRunLogTableReturnsEmptyHistory(t *testing.T) {
+	path := newFixtureDB(t, `
+CREATE TABLE cron_jobs (
+	store_key TEXT NOT NULL,
+	job_id TEXT NOT NULL,
+	name TEXT NOT NULL,
+	enabled INTEGER NOT NULL,
+	schedule_kind TEXT NOT NULL,
+	next_run_at_ms INTEGER,
+	PRIMARY KEY (store_key, job_id)
+);
+`, nil)
+
+	adapter := New("file:" + path + "?mode=ro")
+	ctx := context.Background()
+
+	if err := adapter.Open(ctx); err != nil {
+		t.Fatalf("open adapter without run-log table: %v", err)
+	}
+	defer adapter.Close()
+
+	logs, err := adapter.ListRunLogs(ctx, "job-1", 20)
+	if err != nil {
+		t.Fatalf("list logs without run-log table: %v", err)
+	}
+	if len(logs) != 0 {
+		t.Fatalf("expected empty run history, got %d entries", len(logs))
+	}
+}
+
 func TestAdapter_EmptyDatabase(t *testing.T) {
 	path := newFixtureDB(t, fullSchemaV1, nil)
 	ctx := context.Background()

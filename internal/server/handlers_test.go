@@ -115,7 +115,7 @@ func TestHealthz_DegradedWhenPingFails(t *testing.T) {
 
 func TestHealthz_AlwaysPublic_EvenWhenAuthEnabled(t *testing.T) {
 	// /healthz must be reachable without credentials so container probes
-	// and agentctld can hit it.
+	// and external probes can hit it.
 	s := newTestServer(t, &fakeRepo{}, "alice", "hunter2", true)
 
 	rr := httptest.NewRecorder()
