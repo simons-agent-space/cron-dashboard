@@ -243,7 +243,7 @@ main > p:first-child a:active {
     transform: translate(5px, 5px);
 }
 
-/* Responsive: phone-first adjustments */
+/* Responsive: phone-first adjustments — card-stack */
 @media (max-width: 720px) {
     body {
         padding: 16px;
@@ -282,34 +282,164 @@ main > p:first-child a:active {
         margin: 20px 0 10px;
         box-shadow: 3px 3px 0 #000;
     }
+
+    /* === CARD-STACK TABLE LAYOUT === */
+    table thead,
+    table th {
+        display: none;
+    }
+
     table {
         display: block;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        box-shadow: 5px 5px 0 #000;
+        border: 4px solid #000;
+        box-shadow: 6px 6px 0 #000;
+        background: #FFFFFF;
+        margin-bottom: 20px;
+        overflow: visible;
     }
-    th, td {
-        padding: 10px 12px;
+
+    /* job-list + job-runs: each row is its own card */
+    table.job-list tbody tr,
+    table.job-runs tbody tr {
+        display: block;
+        padding: 14px 14px 14px 18px;
+        border-bottom: 3px solid #000;
+    }
+
+    table.job-list tbody tr:last-child,
+    table.job-runs tbody tr:last-child {
+        border-bottom: none;
+    }
+
+    /* job-meta: rows grouped inside one card, divided by dashed lines */
+    table.job-meta tbody tr {
+        display: block;
+        padding: 10px 14px;
+        border-bottom: 2px dashed #888;
+    }
+
+    table.job-meta tbody tr:last-child {
+        border-bottom: none;
+    }
+
+    /* Each cell becomes a block */
+    table tbody td {
+        display: block;
+        padding: 6px 0;
+        border: none !important;
+        white-space: normal;
+        font-size: 0.95rem;
+    }
+
+    /* Visual separation between cells */
+    table.job-list tbody td + td,
+    table.job-runs tbody td + td {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 2px dashed #888 !important;
+    }
+
+    /* Label as a small yellow chip via ::before */
+    table tbody td::before {
+        content: attr(data-label);
+        display: inline-block;
+        font-size: 0.68rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #000;
+        background: #FFE500;
+        padding: 3px 8px;
+        margin-bottom: 6px;
+        border: 2px solid #000;
+    }
+
+    /* First cell in job-list is the card header — prominent */
+    table.job-list tbody td:first-child {
+        padding: 0 0 12px;
+        margin-bottom: 4px;
+        border-bottom: 3px solid #000 !important;
+    }
+
+    table.job-list tbody td:first-child::before {
+        margin-bottom: 8px;
+    }
+
+    table.job-list tbody td:first-child a {
+        font-size: 1.2rem;
+        font-weight: 900;
+        text-decoration: none;
+        color: #000;
+        display: block;
+        padding: 8px 0;
+        min-height: 44px;
+        line-height: 1.3;
+    }
+
+    table.job-list tbody td:first-child small {
+        display: block;
+        margin-top: 2px;
+        line-height: 1.4;
+    }
+
+    /* Status-colored left border on cards */
+    table.job-list tbody tr:has(td.status-ok),
+    table.job-runs tbody tr:has(td.status-ok) {
+        border-left: 8px solid #00A843;
+    }
+    table.job-list tbody tr:has(td.status-failed),
+    table.job-runs tbody tr:has(td.status-failed) {
+        border-left: 8px solid #E5003D;
+    }
+    table.job-list tbody tr:has(td.status-skipped),
+    table.job-runs tbody tr:has(td.status-skipped) {
+        border-left: 8px solid #E07A00;
+    }
+
+    /* Status text colors */
+    table tbody td.status-ok,
+    table tbody td.status-failed,
+    table tbody td.status-skipped,
+    table tbody td.enabled-true,
+    table tbody td.enabled-false {
+        font-weight: 900;
+        text-transform: uppercase;
         font-size: 0.85rem;
-        white-space: nowrap;
     }
-    th {
-        font-size: 0.72rem;
+
+    table tbody td.status-ok,
+    table tbody td.enabled-true {
+        color: #00A843;
     }
+    table tbody td.status-failed,
+    table tbody td.enabled-false {
+        color: #E5003D;
+    }
+    table tbody td.status-skipped {
+        color: #E07A00;
+    }
+
+    /* Code stays inline */
     code {
-        font-size: 0.82em;
-        word-break: break-all;
+        font-size: 0.85em;
+        word-break: break-word;
         white-space: normal;
     }
+
+    /* Pre blocks (error messages) */
     pre {
         font-size: 0.78em;
         padding: 10px;
         box-shadow: 3px 3px 0 #000;
     }
+
+    /* Empty state */
     .empty {
         padding: 20px;
         font-size: 0.9rem;
     }
+
+    /* Back button */
     main > p:first-child a {
         padding: 10px 16px;
         font-size: 0.78rem;

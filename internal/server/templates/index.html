@@ -1,6 +1,6 @@
 {{define "content"}}
 {{if .Jobs}}
-<table>
+<table class="job-list">
 <thead>
 <tr>
     <th>Job</th>
@@ -16,22 +16,22 @@
 <tbody>
 {{range .Jobs}}
 <tr>
-    <td>
+    <td data-label="Job">
         <a href="/jobs/{{.JobID}}">{{if .DisplayName}}{{.DisplayName}}{{else}}{{.Name}}{{end}}</a>
         <br><small class="muted">{{.JobID}}</small>
         {{- if .Description}}
         <br><small>{{.Description}}</small>
         {{- end}}
     </td>
-    <td><code>{{fmtSchedule .}}</code></td>
-    <td class="status-{{.LastRunStatus}}">
+    <td data-label="Schedule"><code>{{fmtSchedule .}}</code></td>
+    <td data-label="Status" class="status-{{.LastRunStatus}}">
         {{.LastRunStatus}}{{if not .Enabled}} <span class="muted">(disabled)</span>{{end}}
     </td>
-    <td>{{fmtTimeOpt .NextRunAt}}</td>
-    <td>{{fmtTimeOpt .LastRunAt}}</td>
-    <td>{{fmtDurationMS .LastDurationMS}}</td>
-    <td>{{.ConsecutiveErrors}}</td>
-    <td>{{.LastDeliveryStatus}}</td>
+    <td data-label="Next run">{{fmtTimeOpt .NextRunAt}}</td>
+    <td data-label="Last run">{{fmtTimeOpt .LastRunAt}}</td>
+    <td data-label="Last duration">{{fmtDurationMS .LastDurationMS}}</td>
+    <td data-label="Consec. errors">{{.ConsecutiveErrors}}</td>
+    <td data-label="Delivery">{{.LastDeliveryStatus}}</td>
 </tr>
 {{end}}
 </tbody>
