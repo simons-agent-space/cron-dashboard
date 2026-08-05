@@ -323,13 +323,14 @@ main > p:first-child a:active {
         border-bottom: none;
     }
 
-    /* Each cell becomes a block */
+    /* Each cell becomes a block with centered content */
     table tbody td {
         display: block;
-        padding: 6px 0;
+        padding: 6px 0 14px 0;
         border: none !important;
         white-space: normal;
         font-size: 0.95rem;
+        text-align: center;
     }
 
     /* Visual separation between cells */
@@ -340,10 +341,12 @@ main > p:first-child a:active {
         border-top: 2px dashed #888 !important;
     }
 
-    /* Label as a small yellow chip via ::before */
+    /* Label as a centered chip on its own line, above the value */
     table tbody td::before {
         content: attr(data-label);
-        display: inline-block;
+        display: block;
+        width: fit-content;
+        margin: 0 auto 10px auto;
         font-size: 0.68rem;
         font-weight: 900;
         text-transform: uppercase;
@@ -351,7 +354,6 @@ main > p:first-child a:active {
         color: #000;
         background: #FFE500;
         padding: 3px 8px;
-        margin-bottom: 6px;
         border: 2px solid #000;
     }
 
