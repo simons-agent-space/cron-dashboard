@@ -99,7 +99,7 @@ func (s *Server) Handler() http.Handler {
 // When authEnabled is false, the middleware is a pass-through.
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// /healthz is always public so container and agentctld probes
+		// /healthz is always public so container and external probes
 		// can reach it without credentials.
 		if r.URL.Path == "/healthz" {
 			next.ServeHTTP(w, r)

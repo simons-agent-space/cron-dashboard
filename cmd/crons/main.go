@@ -28,9 +28,33 @@ const DefaultDBPath = "/data/openclaw-state/openclaw.sqlite"
 const DefaultListenAddr = ":8080"
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "healthcheck" {
+		if err := runHealthcheck(); err != nil {
+			log.Printf("crons healthcheck: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if err := run(); err != nil {
 		log.Fatalf("crons: %v", err)
 	}
+}
+
+func runHealthcheck() error {
+	client := &http.Client{Timeout: 3 * time.Second}
+
+	resp, err := client.Get("http://127.0.0.1:8080/healthz")
+	if err != nil {
+		return fmt.Errorf("request /healthz: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected /healthz status: %s", resp.Status)
+	}
+
+	return nil
 }
 
 func run() error {

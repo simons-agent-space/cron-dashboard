@@ -28,8 +28,8 @@ RUN CGO_ENABLED=0 \
 # only thing on the filesystem.
 #
 # Runtime identity: the OpenClaw state directory this app reads
-# (host_source in deploy.json) is owned by UID/GID 1000:1000 with mode
-# 0600 on the platform. Running as the distroless default `nonroot`
+# is owned by UID/GID 1000:1000 with restrictive permissions and
+# is mounted read-only. Running as the distroless default `nonroot`
 # (UID 65532) would deny every read. The image therefore declares an
 # explicit numeric UID so it can read the mounted database without
 # making the mount writable. Docker accepts a numeric USER even when

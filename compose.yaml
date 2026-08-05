@@ -1,0 +1,39 @@
+services:
+  crons:
+    build:
+      context: .
+    image: cron-dashboard:${CRONS_IMAGE_TAG:-local}
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:${CRONS_HOST_PORT:-18080}:8080"
+
+    environment:
+      HTTP_ADDR: ":8080"
+      OPENCLAW_DB_PATH: /data/openclaw-state/openclaw.sqlite
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:?BASIC_AUTH_USER must be set}
+      BASIC_AUTH_PASSWORD: ${BASIC_AUTH_PASSWORD:?BASIC_AUTH_PASSWORD must be set}
+
+    volumes:
+      - type: bind
+        source: ${OPENCLAW_STATE_DIR:-/srv/openclaw/state/state}
+        target: /data/openclaw-state
+        read_only: true
+
+    read_only: true
+
+    security_opt:
+      - no-new-privileges:true
+
+    cap_drop:
+      - ALL
+
+    healthcheck:
+      test:
+        - CMD
+        - /usr/local/bin/crons
+        - healthcheck
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s

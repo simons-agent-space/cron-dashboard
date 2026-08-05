@@ -8,7 +8,7 @@ The dashboard reads the OpenClaw SQLite state file and renders:
 
 * An index of every cron job with its enabled state, schedule, next run,
   last run, last error, duration, consecutive errors, and delivery status.
-* A per-job detail page with the most recent run history.
+* A per-job detail page with recent run history when the database provides it.
 
 Payload messages, delivery recipients, account IDs, session keys, and the
 `job_json` / `state_json` blobs are deliberately not exposed.
@@ -22,7 +22,7 @@ Payload messages, delivery recipients, account IDs, session keys, and the
 | `BASIC_AUTH_PASSWORD`  | unset                                   | When set together with `BASIC_AUTH_USER`, requires HTTP Basic Auth.          |
 | `HTTP_ADDR`            | `:8080`                                 | HTTP listen address.                                                         |
 
-`/healthz` is always public so container and agentctld probes can reach
+`/healthz` is always public so container and external probes can reach
 it. Every other route requires Basic Auth when both auth variables are
 set.
 
@@ -61,7 +61,7 @@ columns:
 
 * `cron_jobs` requires: `job_id`, `name`, `enabled`, `schedule_kind`,
   `next_run_at_ms`.
-* `cron_run_logs` requires: `job_id`, `seq`, `ts`.
+* `cron_run_logs` is optional. When present, it requires `job_id`, `seq`, and `ts`.
 
 Unknown additional columns are tolerated — the adapter only `SELECT`s
 the columns it knows about. The schema version is read from
@@ -81,58 +81,66 @@ toolchain is needed.
 
 ## Deployment
 
-Built as a distroless `scratch`-style image. The data directory is
-mounted read-only:
+The production runtime is defined in `compose.yaml`.
 
-```
--v /srv/openclaw/state/state:/data/openclaw-state:ro
-```
+It provides:
 
-Mounting the **directory** (not just the `.sqlite` file) is required —
-the database runs in WAL mode and needs the matching `-wal` and `-shm`
-files to read the current state safely.
+* a localhost-only port binding
+* required Basic Auth credentials
+* a read-only bind mount of the live OpenClaw state directory
+* a read-only container filesystem
+* dropped Linux capabilities
+* `no-new-privileges`
+* a health check that queries the public `/healthz` endpoint
 
-`deploy.json` is the agentctld manifest:
+Required production variables:
 
-```json
-{
-  "version": 2,
-  "app": "crons",
-  "container_port": 8080,
-  "health_path": "/healthz",
-  "data": {
-    "mount": true,
-    "read_only": true
-  }
-}
-```
+    BASIC_AUTH_USER=...
+    BASIC_AUTH_PASSWORD=...
 
-## Limitations
+Optional variables:
 
-* **agentctld host-source mount.** The required source for the read-only
-  data mount is the live OpenClaw state directory at
-  `/srv/openclaw/state/state` (WAL-mode SQLite — needs the matching `-wal`
-  and `-shm` files in the same directory). The current `agentctld` manifest
-  only declares a fresh per-app data directory (the `data.mount: true`
-  used by `deploy.json`); it cannot name an existing host path. This is a
-  daemon limitation independent of `crons`. Fix it in
-  `simons-agent-space/agentctl` by adding a `data.host_source` (or
-  equivalent) field plus an allowlist of read-only host paths — then
-  `crons` works as-is, no further changes here.
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CRONS_HOST_PORT` | `18080` | Host loopback port forwarded to container port 8080. |
+| `CRONS_IMAGE_TAG` | `local` | Image tag used by Docker Compose. |
+| `OPENCLAW_STATE_DIR` | `/srv/openclaw/state/state` | Host directory containing the SQLite database and WAL files. |
 
-* **`agentctld` must inject Basic Auth secrets.** `crons` requires both
-  `BASIC_AUTH_USER` and `BASIC_AUTH_PASSWORD` to be set. Without them the
-  binary serves the dashboard without authentication and only logs a
-  warning (deliberate — useful for local dev). `agentctld` must inject
-  both as required secrets at deploy time and refuse to deploy when
-  either is missing. The dashboard must never be served publicly
-  without auth. The right place for this enforcement is
-  `simons-agent-space/agentctl` (separate repo).
+Validate and start locally:
 
-* **Docker build not run in the agent sandbox.** This branch ships a
-  multi-stage distroless `Dockerfile`; the agent sandbox has no `docker`
-  binary, so please run `docker build` on the host builder as part of
-  merge validation.
+    BASIC_AUTH_USER=admin \
+    BASIC_AUTH_PASSWORD=development-only \
+    docker compose config --quiet
+
+    BASIC_AUTH_USER=admin \
+    BASIC_AUTH_PASSWORD=development-only \
+    docker compose up --build
+
+Mounting the directory rather than only `openclaw.sqlite` is required because
+the database uses WAL mode and the matching `-wal` and `-shm` files must be
+available.
+
+The application opens SQLite with `mode=ro`, enables `PRAGMA query_only`, and
+receives the state directory through a read-only bind mount.
+
+### Production delivery
+
+Application changes follow this path:
+
+1. an agent or developer creates a feature branch
+2. a pull request runs required CI
+3. Simon reviews and merges into protected `main`
+4. GitHub Actions sends the exact merged commit SHA to the VPS
+5. a restricted service-specific script verifies that the SHA belongs to
+   `origin/main`
+6. the script checks out that exact SHA and runs Docker Compose
+7. deployment succeeds only after the Compose health check passes
+
+The application repository does not contain VPS credentials, production
+secrets, dynamic Caddy configuration, or direct deployment authority.
+
+Caddy is configured statically on the VPS to proxy the public hostname to the
+localhost port defined by `CRONS_HOST_PORT`.
 
 ## License
 

@@ -205,10 +205,19 @@ func (a *Adapter) ListRunLogs(ctx context.Context, jobID string, limit int) ([]d
 	if limit <= 0 {
 		return nil, nil
 	}
+
 	db, err := a.dbOrError(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	// Older and current OpenClaw databases may not persist run history in a
+	// cron_run_logs table. Job data remains usable, so return an empty history
+	// instead of degrading the entire dashboard.
+	if len(a.runCols) == 0 {
+		return []domain.RunLog{}, nil
+	}
+
 	sqlStr, present := a.runLogsSelect()
 	rows, err := db.QueryContext(ctx, sqlStr+" WHERE job_id = ? ORDER BY ts DESC, seq DESC LIMIT ?",
 		jobID, limit)
