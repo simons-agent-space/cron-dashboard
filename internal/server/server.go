@@ -105,6 +105,9 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// Dashboard pages: prevent aggressive caching so deploys are
+		// visible immediately on phones/browsers without manual refresh.
+		w.Header().Set("Cache-Control", "no-store, must-revalidate")
 		if !s.authEnabled {
 			next.ServeHTTP(w, r)
 			return
