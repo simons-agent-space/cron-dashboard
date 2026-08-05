@@ -56,5 +56,5 @@ jobs:
           BASIC_AUTH_PASSWORD: ci-password
         run: docker compose config --quiet
 
-                                                                   - name: Build container image
+      - name: Build container image
         run: docker build --tag cron-dashboard:ci .
