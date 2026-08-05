@@ -24,13 +24,24 @@ RUN CGO_ENABLED=0 \
         -o /out/crons ./cmd/crons
 
 # ---- runtime stage ----
-# distroless/static has no shell, no package manager, and runs as nonroot.
-# The binary is the only thing on the filesystem.
+# distroless/static has no shell, no package manager. The binary is the
+# only thing on the filesystem.
+#
+# Runtime identity: the OpenClaw state directory this app reads
+# (host_source in deploy.json) is owned by UID/GID 1000:1000 with mode
+# 0600 on the platform. Running as the distroless default `nonroot`
+# (UID 65532) would deny every read. The image therefore declares an
+# explicit numeric UID so it can read the mounted database without
+# making the mount writable. Docker accepts a numeric USER even when
+# the uid is not present in /etc/passwd inside the image.
+#
+# This is a platform-wide convention for apps that read OpenClaw
+# state; other apps that need the same access use the same UID.
 FROM gcr.io/distroless/static-debian12:nonroot
 
 COPY --from=build /out/crons /usr/local/bin/crons
 
 EXPOSE 8080
-USER nonroot:nonroot
+USER 1000:1000
 
 ENTRYPOINT ["/usr/local/bin/crons"]
