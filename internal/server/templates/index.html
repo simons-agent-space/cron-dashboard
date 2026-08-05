@@ -23,7 +23,7 @@
         <br><small>{{.Description}}</small>
         {{- end}}
     </td>
-    <td data-label="Schedule"><code>{{fmtSchedule .}}</code></td>
+    <td data-label="Schedule"><code>{{fmtSchedule .}}</code>{{with fmtScheduleHuman .}}<br><small>{{.}}</small>{{end}}</td>
     <td data-label="Status" class="status-{{.LastRunStatus}}">
         {{.LastRunStatus}}{{if not .Enabled}} <span class="muted">(disabled)</span>{{end}}
     </td>
