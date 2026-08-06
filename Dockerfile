@@ -7,7 +7,7 @@
 #             crons:dev
 
 # ---- build stage ----
-FROM golang:1.22-alpine AS build
+FROM golang:1.24-alpine AS build
 WORKDIR /src
 
 # Cache module downloads so source-only edits don't re-fetch the world.
