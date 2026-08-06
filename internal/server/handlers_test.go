@@ -513,3 +513,141 @@ func TestJobIDFromPath(t *testing.T) {
 		})
 	}
 }
+
+func TestIndex_FiltersByQuery(t *testing.T) {
+	repo := &fakeRepo{
+		jobs: []domain.Job{
+			{JobID: "job-1", Name: "nightly-cleanup", Description: "delete tmp files"},
+			{JobID: "job-2", Name: "weekly-report"},
+			{JobID: "job-3", Name: "disk-monitor", Description: "watch /var"},
+		},
+	}
+	s := newTestServer(t, repo, "", "", false)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?q=nightly", nil)
+	s.Handler().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "nightly-cleanup") {
+		t.Errorf("expected nightly-cleanup in results:\n%s", body)
+	}
+	if strings.Contains(body, "weekly-report") {
+		t.Errorf("expected weekly-report filtered out:\n%s", body)
+	}
+	if strings.Contains(body, "disk-monitor") {
+		t.Errorf("expected disk-monitor filtered out:\n%s", body)
+	}
+	if !strings.Contains(body, `value="nightly"`) {
+		t.Errorf("expected search input to retain value:\n%s", body)
+	}
+}
+
+func TestIndex_EmptyQueryReturnsAll(t *testing.T) {
+	repo := &fakeRepo{
+		jobs: []domain.Job{
+			{JobID: "job-1", Name: "alpha"},
+			{JobID: "job-2", Name: "beta"},
+		},
+	}
+	s := newTestServer(t, repo, "", "", false)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?q=", nil)
+	s.Handler().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "alpha") || !strings.Contains(body, "beta") {
+		t.Fatalf("expected both jobs with empty query, got:\n%s", body)
+	}
+	if !strings.Contains(body, `value=""`) {
+		t.Fatalf("expected empty search input value, got:\n%s", body)
+	}
+}
+
+func TestIndex_QueryNoMatchShowsEmptyState(t *testing.T) {
+	repo := &fakeRepo{
+		jobs: []domain.Job{
+			{JobID: "job-1", Name: "alpha"},
+		},
+	}
+	s := newTestServer(t, repo, "", "", false)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?q=nothingmatches", nil)
+	s.Handler().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if strings.Contains(body, "alpha") {
+		t.Errorf("expected alpha filtered out:\n%s", body)
+	}
+	if !strings.Contains(body, "No jobs found.") {
+		t.Errorf("expected empty-state message, got:\n%s", body)
+	}
+}
+
+func TestFilterJobsByQuery(t *testing.T) {
+	jobs := []domain.Job{
+		{JobID: "id-1", Name: "alpha", DisplayName: "Alpha", Description: "first"},
+		{JobID: "id-2", Name: "beta"},
+		{JobID: "id-3", Name: "gamma", Description: "third alpha-ish"},
+	}
+
+	cases := []struct {
+		name string
+		q    string
+		want []string
+	}{
+		{"empty-returns-all", "", []string{"id-1", "id-2", "id-3"}},
+		{"matches-name", "alpha", []string{"id-1", "id-3"}}, // id-3 description "third alpha-ish" also matches
+		{"matches-id", "id-2", []string{"id-2"}},
+		{"matches-display", "Alpha", []string{"id-1", "id-3"}}, // case-insensitive
+		{"matches-description", "third", []string{"id-3"}},
+		{"no-match", "nope", nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := filterJobsByQuery(jobs, c.q)
+			if len(got) != len(c.want) {
+				t.Fatalf("got %d jobs, want %d (%v)", len(got), len(c.want), got)
+			}
+			for i, j := range got {
+				if j.JobID != c.want[i] {
+					t.Errorf("position %d: got %s, want %s", i, j.JobID, c.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestIndex_QueryTrimsWhitespace(t *testing.T) {
+	repo := &fakeRepo{
+		jobs: []domain.Job{
+			{JobID: "job-1", Name: "alpha"},
+		},
+	}
+	s := newTestServer(t, repo, "", "", false)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?q=%20%20alpha%20%20", nil)
+	s.Handler().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "alpha") {
+		t.Fatalf("expected alpha after trim, got:\n%s", rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `value="alpha"`) {
+		t.Fatalf("expected trimmed search input value, got:\n%s", rr.Body.String())
+	}
+}

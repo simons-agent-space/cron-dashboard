@@ -1,4 +1,7 @@
 {{define "content"}}
+<form method="get" action="/" class="search-form">
+    <input type="search" name="q" value="{{.Q}}" placeholder="search jobs…" aria-label="search jobs">
+</form>
 {{if .Jobs}}
 <table class="job-list">
 <thead>
