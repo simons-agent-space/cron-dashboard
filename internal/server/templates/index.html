@@ -16,7 +16,7 @@
 <thead>
 <tr>
     <th><a class="sort-link{{if eq .Sort "name"}} sort-active{{end}}" href="{{.SortHeader "name"}}">Job{{.SortIndicator "name"}}</a></th>
-    <th>Schedule</th>
+    <th><a class="sort-link{{if eq .Sort "kind"}} sort-active{{end}}" href="{{.SortHeader "kind"}}">Schedule{{.SortIndicator "kind"}}</a></th>
     <th>Status</th>
     <th><a class="sort-link{{if eq .Sort "next"}} sort-active{{end}}" href="{{.SortHeader "next"}}">Next run{{.SortIndicator "next"}}</a></th>
     <th><a class="sort-link{{if eq .Sort "last"}} sort-active{{end}}" href="{{.SortHeader "last"}}">Last run{{.SortIndicator "last"}}</a></th>
