@@ -5,7 +5,10 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"net/url"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/simons-agent-space/cron-dashboard/internal/domain"
 )
@@ -15,6 +18,40 @@ type indexData struct {
 	Jobs   []domain.Job
 	Q      string
 	Status string
+	Sort   string
+	Dir    string
+}
+
+// SortHeader returns the href for a sortable column header, preserving
+// the current query, status, and toggling dir if this axis is already
+// the active sort.
+func (d indexData) SortHeader(axis string) string {
+	dir := "asc"
+	if d.Sort == axis && d.Dir == "asc" {
+		dir = "desc"
+	}
+	v := url.Values{}
+	if d.Q != "" {
+		v.Set("q", d.Q)
+	}
+	if d.Status != "" {
+		v.Set("status", d.Status)
+	}
+	v.Set("sort", axis)
+	v.Set("dir", dir)
+	return "/?" + v.Encode()
+}
+
+// SortIndicator returns an arrow glyph when axis is the active sort
+// column, "" otherwise.
+func (d indexData) SortIndicator(axis string) string {
+	if d.Sort != axis {
+		return ""
+	}
+	if d.Dir == "desc" {
+		return " ↓"
+	}
+	return " ↑"
 }
 
 // jobData is the data the job detail template renders.
@@ -64,7 +101,11 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
 	jobs = filterJobsByStatus(jobs, status)
 
-	if err := s.indexTmpl.ExecuteTemplate(w, "layout", indexData{Jobs: jobs, Q: q, Status: status}); err != nil {
+	sortKey := r.URL.Query().Get("sort")
+	dir := r.URL.Query().Get("dir")
+	jobs = sortJobs(jobs, sortKey, dir)
+
+	if err := s.indexTmpl.ExecuteTemplate(w, "layout", indexData{Jobs: jobs, Q: q, Status: status, Sort: sortKey, Dir: dir}); err != nil {
 		log.Printf("crons: render index: %v", err)
 	}
 }
@@ -161,4 +202,62 @@ func jobMatchesStatus(j domain.Job, status string) bool {
 	default:
 		return true
 	}
+}
+
+// sortJobs returns a copy of jobs sorted by the given axis and direction.
+// Empty axis returns the input unchanged. An unknown axis returns the
+// input unchanged (allowlist prevents SQL-injection-style abuse even
+// though no SQL is involved).
+func sortJobs(jobs []domain.Job, axis, dir string) []domain.Job {
+	if axis == "" {
+		return jobs
+	}
+	desc := dir == "desc"
+	out := make([]domain.Job, len(jobs))
+	copy(out, jobs)
+	sort.SliceStable(out, func(i, j int) bool {
+		return jobLess(out[i], out[j], axis, desc)
+	})
+	return out
+}
+
+func jobLess(a, b domain.Job, axis string, desc bool) bool {
+	switch axis {
+	case "name":
+		if desc {
+			return a.Name > b.Name
+		}
+		return a.Name < b.Name
+	case "next":
+		return timePtrLess(a.NextRunAt, b.NextRunAt, desc)
+	case "last":
+		return timePtrLess(a.LastRunAt, b.LastRunAt, desc)
+	case "errors":
+		if desc {
+			return a.ConsecutiveErrors > b.ConsecutiveErrors
+		}
+		return a.ConsecutiveErrors < b.ConsecutiveErrors
+	case "duration":
+		if desc {
+			return a.LastDurationMS > b.LastDurationMS
+		}
+		return a.LastDurationMS < b.LastDurationMS
+	default:
+		return false
+	}
+}
+
+// timePtrLess orders two *time.Time values, with nil always sorting
+// last regardless of direction.
+func timePtrLess(a, b *time.Time, desc bool) bool {
+	if a == nil {
+		return false
+	}
+	if b == nil {
+		return true
+	}
+	if desc {
+		return a.After(*b)
+	}
+	return a.Before(*b)
 }
