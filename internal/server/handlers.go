@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/simons-agent-space/cron-dashboard/internal/domain"
 )
@@ -12,6 +13,7 @@ import (
 // indexData is the data the index template renders.
 type indexData struct {
 	Jobs []domain.Job
+	Q    string
 }
 
 // jobData is the data the job detail template renders.
@@ -52,9 +54,32 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	if err := s.indexTmpl.ExecuteTemplate(w, "layout", indexData{Jobs: jobs}); err != nil {
+
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	if q != "" {
+		jobs = filterJobsByQuery(jobs, q)
+	}
+
+	if err := s.indexTmpl.ExecuteTemplate(w, "layout", indexData{Jobs: jobs, Q: q}); err != nil {
 		log.Printf("crons: render index: %v", err)
 	}
+}
+
+// filterJobsByQuery returns the subset of jobs whose name, jobID,
+// display name, or description contains q as a case-insensitive
+// substring. An empty q returns the input unchanged.
+func filterJobsByQuery(jobs []domain.Job, q string) []domain.Job {
+	needle := strings.ToLower(q)
+	out := make([]domain.Job, 0, len(jobs))
+	for _, j := range jobs {
+		if strings.Contains(strings.ToLower(j.Name), needle) ||
+			strings.Contains(strings.ToLower(j.JobID), needle) ||
+			strings.Contains(strings.ToLower(j.DisplayName), needle) ||
+			strings.Contains(strings.ToLower(j.Description), needle) {
+			out = append(out, j)
+		}
+	}
+	return out
 }
 
 // handleJobDetail renders the per-job detail page with recent run history.
