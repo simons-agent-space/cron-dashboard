@@ -15,13 +15,13 @@
 <table class="job-list">
 <thead>
 <tr>
-    <th>Job</th>
+    <th><a class="sort-link{{if eq .Sort "name"}} sort-active{{end}}" href="{{.SortHeader "name"}}">Job{{.SortIndicator "name"}}</a></th>
     <th>Schedule</th>
     <th>Status</th>
-    <th>Next run</th>
-    <th>Last run</th>
-    <th>Last duration</th>
-    <th>Consec. errors</th>
+    <th><a class="sort-link{{if eq .Sort "next"}} sort-active{{end}}" href="{{.SortHeader "next"}}">Next run{{.SortIndicator "next"}}</a></th>
+    <th><a class="sort-link{{if eq .Sort "last"}} sort-active{{end}}" href="{{.SortHeader "last"}}">Last run{{.SortIndicator "last"}}</a></th>
+    <th><a class="sort-link{{if eq .Sort "duration"}} sort-active{{end}}" href="{{.SortHeader "duration"}}">Last duration{{.SortIndicator "duration"}}</a></th>
+    <th><a class="sort-link{{if eq .Sort "errors"}} sort-active{{end}}" href="{{.SortHeader "errors"}}">Consec. errors{{.SortIndicator "errors"}}</a></th>
     <th>Delivery</th>
 </tr>
 </thead>

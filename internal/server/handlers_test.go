@@ -776,3 +776,114 @@ func TestFilterJobsByStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestSortJobs(t *testing.T) {
+	t1 := ts(2026, 8, 5, 3, 0)
+	t2 := ts(2026, 8, 6, 3, 0)
+	t3 := ts(2026, 8, 4, 3, 0)
+	jobs := []domain.Job{
+		{JobID: "z", Name: "zebra", NextRunAt: ptrTime(t2), LastRunAt: ptrTime(t3), ConsecutiveErrors: 2, LastDurationMS: 500},
+		{JobID: "a", Name: "alpha", NextRunAt: ptrTime(t1), LastRunAt: ptrTime(t1), ConsecutiveErrors: 0, LastDurationMS: 100},
+		{JobID: "m", Name: "mango", NextRunAt: nil, LastRunAt: nil, ConsecutiveErrors: 5, LastDurationMS: 300},
+		{JobID: "b", Name: "beta", NextRunAt: ptrTime(t2), LastRunAt: ptrTime(t2), ConsecutiveErrors: 0, LastDurationMS: 200},
+	}
+
+	cases := []struct {
+		name string
+		axis string
+		dir  string
+		want []string
+	}{
+		{"empty-no-sort", "", "", []string{"z", "a", "m", "b"}},
+		{"name-asc", "name", "asc", []string{"a", "b", "m", "z"}},
+		{"name-desc", "name", "desc", []string{"z", "m", "b", "a"}},
+		{"next-asc-nil-last", "next", "asc", []string{"a", "z", "b", "m"}},
+		{"next-desc-nil-last", "next", "desc", []string{"z", "b", "a", "m"}},
+		{"last-asc-nil-last", "last", "asc", []string{"z", "a", "b", "m"}},
+		{"errors-desc", "errors", "desc", []string{"m", "z", "a", "b"}},
+		{"duration-asc", "duration", "asc", []string{"a", "b", "m", "z"}},
+		{"unknown-no-op", "banana", "", []string{"z", "a", "m", "b"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := sortJobs(jobs, c.axis, c.dir)
+			if len(got) != len(c.want) {
+				t.Fatalf("got %d jobs, want %d (%v)", len(got), len(c.want), got)
+			}
+			for i, j := range got {
+				if j.JobID != c.want[i] {
+					t.Errorf("position %d: got %s, want %s", i, j.JobID, c.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestIndex_SortByName(t *testing.T) {
+	repo := &fakeRepo{
+		jobs: []domain.Job{
+			{JobID: "z", Name: "zebra"},
+			{JobID: "a", Name: "alpha"},
+			{JobID: "m", Name: "mango"},
+		},
+	}
+	s := newTestServer(t, repo, "", "", false)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?sort=name&dir=asc", nil)
+	s.Handler().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	// Verify order: alpha appears before mango, mango before zebra.
+	alphaIdx := strings.Index(body, "alpha")
+	mangoIdx := strings.Index(body, "mango")
+	zebraIdx := strings.Index(body, "zebra")
+	if !(alphaIdx < mangoIdx && mangoIdx < zebraIdx) {
+		t.Fatalf("expected alpha < mango < zebra, got alpha=%d mango=%d zebra=%d\n%s",
+			alphaIdx, mangoIdx, zebraIdx, body)
+	}
+}
+
+func TestIndex_SortHeadersAreLinks(t *testing.T) {
+	repo := &fakeRepo{
+		jobs: []domain.Job{
+			{
+				JobID:         "job-1",
+				Name:          "nightly-cleanup",
+				Enabled:       true,
+				LastRunStatus: "failed",
+				NextRunAt:     ptrTime(ts(2026, 8, 5, 3, 0)),
+			},
+		},
+	}
+	s := newTestServer(t, repo, "", "", false)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?q=nightly&status=error", nil)
+	s.Handler().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	// Each sortable axis should appear as a sort param, dir should be
+	// the toggle target, and q + status must be preserved. url.Values
+	// sorts keys alphabetically so we do not assert on full URL order.
+	for _, want := range []string{
+		`sort=name`,
+		`sort=next`,
+		`sort=last`,
+		`sort=errors`,
+		`sort=duration`,
+		`dir=asc`,
+		`q=nightly`,
+		`status=error`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("expected %q in body", want)
+		}
+	}
+}
