@@ -28,10 +28,11 @@ var templateFS embed.FS
 
 // funcMap exposes the formatting helpers to the templates.
 var funcMap = template.FuncMap{
-	"fmtSchedule":   fmtSchedule,
-	"fmtTime":       fmtTime,
-	"fmtTimeOpt":    fmtTimeOpt,
-	"fmtDurationMS": fmtDurationMS,
+	"fmtSchedule":      fmtSchedule,
+	"fmtScheduleHuman": fmtScheduleHuman,
+	"fmtTime":          fmtTime,
+	"fmtTimeOpt":       fmtTimeOpt,
+	"fmtDurationMS":    fmtDurationMS,
 }
 
 // parsePage parses layout.html together with the given page so the layout's
