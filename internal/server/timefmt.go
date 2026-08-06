@@ -6,12 +6,20 @@ import (
 
 	_ "time/tzdata" // embed the IANA tz database so distroless can format Berlin times
 
+	"github.com/lnquy/cron"
 	"github.com/simons-agent-space/cron-dashboard/internal/domain"
 )
 
-// berlin is the canonical render timezone. Loaded once at startup; the
-// embedded tzdata above ensures this works in a distroless runtime.
 var berlin, _ = time.LoadLocation("Europe/Berlin")
+
+// humanCronDesc turns cron expressions into English for the dashboard's schedule line.
+var humanCronDesc = func() *cron.ExpressionDescriptor {
+	d, err := cron.NewDescriptor(cron.Use24HourTimeFormat(true))
+	if err != nil {
+		panic("cron: NewDescriptor: " + err.Error())
+	}
+	return d
+}()
 
 // fmtTime renders a time.Time in Europe/Berlin. The zero value renders as
 // an em dash so missing timestamps do not look like 1970-01-01.
@@ -69,6 +77,26 @@ func fmtSchedule(j domain.Job) string {
 	}
 }
 
+// fmtScheduleHuman renders a plain-English sentence for the second schedule line.
+// Returns "" when no humanization applies (the template's {{with}} block hides the line).
+func fmtScheduleHuman(j domain.Job) string {
+	switch j.ScheduleKind {
+	case "cron":
+		desc, err := humanCronDesc.ToDescription(j.ScheduleExpr, cron.Locale_en)
+		if err != nil {
+			return ""
+		}
+		return desc
+	case "every":
+		if j.EveryMS <= 0 {
+			return ""
+		}
+		return "Every " + humanizeDuration(time.Duration(j.EveryMS)*time.Millisecond)
+	default:
+		return ""
+	}
+}
+
 // humanizeDuration picks the largest unit that yields a value >= 1 and
 // prints only the non-zero components. Sub-second durations are rendered
 // as "Nms".
@@ -80,26 +108,26 @@ func humanizeDuration(d time.Duration) string {
 		return fmt.Sprintf("%dms", d.Milliseconds())
 	}
 	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
+		return fmt.Sprintf("%ds", int(d/time.Second))
 	}
 	if d < time.Hour {
-		minutes := int(d.Minutes())
-		seconds := int(d.Seconds()) % 60
+		minutes := int(d / time.Minute)
+		seconds := int(d/time.Second) % 60
 		if seconds == 0 {
 			return fmt.Sprintf("%dm", minutes)
 		}
 		return fmt.Sprintf("%dm %ds", minutes, seconds)
 	}
 	if d < 24*time.Hour {
-		hours := int(d.Hours())
-		minutes := int(d.Minutes()) % 60
+		hours := int(d / time.Hour)
+		minutes := int(d/time.Minute) % 60
 		if minutes == 0 {
 			return fmt.Sprintf("%dh", hours)
 		}
 		return fmt.Sprintf("%dh %dm", hours, minutes)
 	}
-	days := int(d.Hours() / 24)
-	hours := int(d.Hours()) % 24
+	days := int(d / (24 * time.Hour))
+	hours := int(d/time.Hour) % 24
 	if hours == 0 {
 		return fmt.Sprintf("%dd", days)
 	}

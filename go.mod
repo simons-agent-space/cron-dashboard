@@ -2,7 +2,10 @@ module github.com/simons-agent-space/cron-dashboard
 
 go 1.24
 
-require modernc.org/sqlite v1.34.4
+require (
+	github.com/lnquy/cron v1.1.1
+	modernc.org/sqlite v1.34.4
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect

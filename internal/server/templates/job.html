@@ -5,7 +5,7 @@
 
 <table class="job-meta">
 <tr><th>Enabled</th><td data-label="Enabled" class="enabled-{{.Job.Enabled}}">{{if .Job.Enabled}}yes{{else}}no{{end}}</td></tr>
-<tr><th>Schedule</th><td data-label="Schedule"><code>{{fmtSchedule .Job}}</code></td></tr>
+<tr><th>Schedule</th><td data-label="Schedule"><code>{{fmtSchedule .Job}}</code>{{with fmtScheduleHuman .Job}}<br><small>{{.}}</small>{{end}}</td></tr>
 <tr><th>Next run</th><td data-label="Next run">{{fmtTimeOpt .Job.NextRunAt}}</td></tr>
 <tr><th>Last run</th><td data-label="Last run">{{fmtTimeOpt .Job.LastRunAt}}</td></tr>
 <tr><th>Last status</th><td data-label="Last status" class="status-{{.Job.LastRunStatus}}">{{.Job.LastRunStatus}}</td></tr>
