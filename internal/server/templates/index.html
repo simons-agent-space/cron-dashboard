@@ -1,7 +1,16 @@
 {{define "content"}}
 <form method="get" action="/" class="search-form">
+    {{if .Status}}<input type="hidden" name="status" value="{{.Status}}">{{end}}
     <input type="search" name="q" value="{{.Q}}" placeholder="search jobs…" aria-label="search jobs">
 </form>
+<div class="filter-chips" role="group" aria-label="filter by status">
+    <a class="chip{{if eq .Status ""}} chip-active{{end}}" href="/?q={{.Q}}">All</a>
+    <a class="chip{{if eq .Status "ok"}} chip-active{{end}}" href="/?q={{.Q}}&amp;status=ok">OK</a>
+    <a class="chip{{if eq .Status "error"}} chip-active{{end}}" href="/?q={{.Q}}&amp;status=error">Error</a>
+    <a class="chip{{if eq .Status "skipped"}} chip-active{{end}}" href="/?q={{.Q}}&amp;status=skipped">Skipped</a>
+    <a class="chip{{if eq .Status "disabled"}} chip-active{{end}}" href="/?q={{.Q}}&amp;status=disabled">Disabled</a>
+    <a class="chip{{if eq .Status "running"}} chip-active{{end}}" href="/?q={{.Q}}&amp;status=running">Running</a>
+</div>
 {{if .Jobs}}
 <table class="job-list">
 <thead>
