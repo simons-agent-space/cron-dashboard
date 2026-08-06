@@ -651,3 +651,128 @@ func TestIndex_QueryTrimsWhitespace(t *testing.T) {
 		t.Fatalf("expected trimmed search input value, got:\n%s", rr.Body.String())
 	}
 }
+
+func TestIndex_FiltersByStatus(t *testing.T) {
+	repo := &fakeRepo{
+		jobs: []domain.Job{
+			{JobID: "job-1", Name: "ok-job", Enabled: true, LastRunStatus: "ok"},
+			{JobID: "job-2", Name: "broken-job", Enabled: true, LastRunStatus: "failed"},
+			{JobID: "job-3", Name: "off-job", Enabled: false, LastRunStatus: "ok"},
+			{JobID: "job-4", Name: "skipped-job", Enabled: true, LastRunStatus: "skipped"},
+		},
+	}
+	s := newTestServer(t, repo, "", "", false)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?status=error", nil)
+	s.Handler().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "broken-job") {
+		t.Errorf("expected broken-job in results:\n%s", body)
+	}
+	if strings.Contains(body, "ok-job") {
+		t.Errorf("expected ok-job filtered out:\n%s", body)
+	}
+	if strings.Contains(body, "off-job") {
+		t.Errorf("expected off-job filtered out:\n%s", body)
+	}
+	if strings.Contains(body, "skipped-job") {
+		t.Errorf("expected skipped-job filtered out:\n%s", body)
+	}
+	if !strings.Contains(body, `chip-active`) {
+		t.Errorf("expected active chip styling, got:\n%s", body)
+	}
+}
+
+func TestIndex_StatusAndQueryCombined(t *testing.T) {
+	repo := &fakeRepo{
+		jobs: []domain.Job{
+			{JobID: "job-1", Name: "nightly", Enabled: true, LastRunStatus: "ok"},
+			{JobID: "job-2", Name: "weekly", Enabled: true, LastRunStatus: "failed"},
+			{JobID: "job-3", Name: "nightly-old", Enabled: false, LastRunStatus: "ok"},
+		},
+	}
+	s := newTestServer(t, repo, "", "", false)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?q=nightly&status=ok", nil)
+	s.Handler().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, `nightly</a>`) {
+		t.Errorf("expected nightly in results:\n%s", body)
+	}
+	if strings.Contains(body, "weekly") {
+		t.Errorf("expected weekly filtered out by query:\n%s", body)
+	}
+	if strings.Contains(body, "nightly-old") {
+		t.Errorf("expected nightly-old filtered out by status (disabled):\n%s", body)
+	}
+}
+
+func TestIndex_StatusUnknownNoOp(t *testing.T) {
+	repo := &fakeRepo{
+		jobs: []domain.Job{
+			{JobID: "job-1", Name: "alpha", Enabled: true, LastRunStatus: "ok"},
+			{JobID: "job-2", Name: "beta", Enabled: true, LastRunStatus: "failed"},
+		},
+	}
+	s := newTestServer(t, repo, "", "", false)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/?status=banana", nil)
+	s.Handler().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "alpha") || !strings.Contains(body, "beta") {
+		t.Fatalf("unknown status should not filter, got:\n%s", body)
+	}
+}
+
+func TestFilterJobsByStatus(t *testing.T) {
+	running := ts(2026, 8, 6, 12, 0)
+	jobs := []domain.Job{
+		{JobID: "ok", Name: "ok-job", Enabled: true, LastRunStatus: "ok"},
+		{JobID: "failed", Name: "failed-job", Enabled: true, LastRunStatus: "failed"},
+		{JobID: "skipped", Name: "skipped-job", Enabled: true, LastRunStatus: "skipped"},
+		{JobID: "off", Name: "off-job", Enabled: false, LastRunStatus: "ok"},
+		{JobID: "running", Name: "running-job", Enabled: true, LastRunStatus: "ok", RunningAt: ptrTime(running)},
+	}
+
+	cases := []struct {
+		name   string
+		status string
+		want   []string
+	}{
+		{"empty-no-filter", "", []string{"ok", "failed", "skipped", "off", "running"}},
+		{"ok", "ok", []string{"ok", "running"}}, // disabled excluded; running counts as ok
+		{"error", "error", []string{"failed"}},
+		{"skipped", "skipped", []string{"skipped"}},
+		{"disabled", "disabled", []string{"off"}},
+		{"running", "running", []string{"running"}},
+		{"unknown-no-op", "banana", []string{"ok", "failed", "skipped", "off", "running"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := filterJobsByStatus(jobs, c.status)
+			if len(got) != len(c.want) {
+				t.Fatalf("got %d jobs, want %d (%v)", len(got), len(c.want), got)
+			}
+			for i, j := range got {
+				if j.JobID != c.want[i] {
+					t.Errorf("position %d: got %s, want %s", i, j.JobID, c.want[i])
+				}
+			}
+		})
+	}
+}

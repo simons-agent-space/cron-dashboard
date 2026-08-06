@@ -12,8 +12,9 @@ import (
 
 // indexData is the data the index template renders.
 type indexData struct {
-	Jobs []domain.Job
-	Q    string
+	Jobs   []domain.Job
+	Q      string
+	Status string
 }
 
 // jobData is the data the job detail template renders.
@@ -60,7 +61,10 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		jobs = filterJobsByQuery(jobs, q)
 	}
 
-	if err := s.indexTmpl.ExecuteTemplate(w, "layout", indexData{Jobs: jobs, Q: q}); err != nil {
+	status := r.URL.Query().Get("status")
+	jobs = filterJobsByStatus(jobs, status)
+
+	if err := s.indexTmpl.ExecuteTemplate(w, "layout", indexData{Jobs: jobs, Q: q, Status: status}); err != nil {
 		log.Printf("crons: render index: %v", err)
 	}
 }
@@ -123,5 +127,38 @@ func (s *Server) renderNotFound(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNotFound)
 	if err := s.notFoundTmpl.ExecuteTemplate(w, "layout", nil); err != nil {
 		log.Printf("crons: render 404: %v", err)
+	}
+}
+
+// filterJobsByStatus returns the subset of jobs matching the given
+// status. Recognised statuses: "ok", "error", "skipped", "disabled",
+// "running". An empty or unknown status returns the input unchanged.
+func filterJobsByStatus(jobs []domain.Job, status string) []domain.Job {
+	if status == "" {
+		return jobs
+	}
+	out := make([]domain.Job, 0, len(jobs))
+	for _, j := range jobs {
+		if jobMatchesStatus(j, status) {
+			out = append(out, j)
+		}
+	}
+	return out
+}
+
+func jobMatchesStatus(j domain.Job, status string) bool {
+	switch status {
+	case "ok":
+		return j.Enabled && j.LastRunStatus == "ok"
+	case "error":
+		return j.LastRunStatus == "failed"
+	case "skipped":
+		return j.LastRunStatus == "skipped"
+	case "disabled":
+		return !j.Enabled
+	case "running":
+		return j.RunningAt != nil
+	default:
+		return true
 	}
 }
