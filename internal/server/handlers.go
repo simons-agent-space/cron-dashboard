@@ -242,6 +242,11 @@ func jobLess(a, b domain.Job, axis string, desc bool) bool {
 			return a.LastDurationMS > b.LastDurationMS
 		}
 		return a.LastDurationMS < b.LastDurationMS
+	case "kind":
+		if desc {
+			return kindOrder(a.ScheduleKind) > kindOrder(b.ScheduleKind)
+		}
+		return kindOrder(a.ScheduleKind) < kindOrder(b.ScheduleKind)
 	default:
 		return false
 	}
@@ -260,4 +265,22 @@ func timePtrLess(a, b *time.Time, desc bool) bool {
 		return a.After(*b)
 	}
 	return a.Before(*b)
+}
+
+// kindOrder assigns a sort rank to schedule kinds. One-time reminders
+// (at) sort first, intervals (every) next, cron patterns after that,
+// then any unknown kind, and finally jobs with no kind.
+func kindOrder(k string) int {
+	switch k {
+	case "at":
+		return 0
+	case "every":
+		return 1
+	case "cron":
+		return 2
+	case "":
+		return 4
+	default:
+		return 3
+	}
 }

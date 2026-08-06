@@ -782,10 +782,11 @@ func TestSortJobs(t *testing.T) {
 	t2 := ts(2026, 8, 6, 3, 0)
 	t3 := ts(2026, 8, 4, 3, 0)
 	jobs := []domain.Job{
-		{JobID: "z", Name: "zebra", NextRunAt: ptrTime(t2), LastRunAt: ptrTime(t3), ConsecutiveErrors: 2, LastDurationMS: 500},
-		{JobID: "a", Name: "alpha", NextRunAt: ptrTime(t1), LastRunAt: ptrTime(t1), ConsecutiveErrors: 0, LastDurationMS: 100},
-		{JobID: "m", Name: "mango", NextRunAt: nil, LastRunAt: nil, ConsecutiveErrors: 5, LastDurationMS: 300},
-		{JobID: "b", Name: "beta", NextRunAt: ptrTime(t2), LastRunAt: ptrTime(t2), ConsecutiveErrors: 0, LastDurationMS: 200},
+		{JobID: "z", Name: "zebra", NextRunAt: ptrTime(t2), LastRunAt: ptrTime(t3), ConsecutiveErrors: 2, LastDurationMS: 500, ScheduleKind: "cron"},
+		{JobID: "a", Name: "alpha", NextRunAt: ptrTime(t1), LastRunAt: ptrTime(t1), ConsecutiveErrors: 0, LastDurationMS: 100, ScheduleKind: "at"},
+		{JobID: "m", Name: "mango", NextRunAt: nil, LastRunAt: nil, ConsecutiveErrors: 5, LastDurationMS: 300, ScheduleKind: ""},
+		{JobID: "b", Name: "beta", NextRunAt: ptrTime(t2), LastRunAt: ptrTime(t2), ConsecutiveErrors: 0, LastDurationMS: 200, ScheduleKind: "every"},
+		{JobID: "u", Name: "unknown-job", NextRunAt: nil, LastRunAt: nil, ConsecutiveErrors: 0, LastDurationMS: 0, ScheduleKind: "banana"},
 	}
 
 	cases := []struct {
@@ -794,15 +795,17 @@ func TestSortJobs(t *testing.T) {
 		dir  string
 		want []string
 	}{
-		{"empty-no-sort", "", "", []string{"z", "a", "m", "b"}},
-		{"name-asc", "name", "asc", []string{"a", "b", "m", "z"}},
-		{"name-desc", "name", "desc", []string{"z", "m", "b", "a"}},
-		{"next-asc-nil-last", "next", "asc", []string{"a", "z", "b", "m"}},
-		{"next-desc-nil-last", "next", "desc", []string{"z", "b", "a", "m"}},
-		{"last-asc-nil-last", "last", "asc", []string{"z", "a", "b", "m"}},
-		{"errors-desc", "errors", "desc", []string{"m", "z", "a", "b"}},
-		{"duration-asc", "duration", "asc", []string{"a", "b", "m", "z"}},
-		{"unknown-no-op", "banana", "", []string{"z", "a", "m", "b"}},
+		{"empty-no-sort", "", "", []string{"z", "a", "m", "b", "u"}},
+		{"name-asc", "name", "asc", []string{"a", "b", "m", "u", "z"}},
+		{"name-desc", "name", "desc", []string{"z", "u", "m", "b", "a"}},
+		{"next-asc-nil-last", "next", "asc", []string{"a", "z", "b", "m", "u"}},
+		{"next-desc-nil-last", "next", "desc", []string{"z", "b", "a", "m", "u"}},
+		{"last-asc-nil-last", "last", "asc", []string{"z", "a", "b", "m", "u"}},
+		{"errors-desc", "errors", "desc", []string{"m", "z", "a", "b", "u"}},
+		{"duration-asc", "duration", "asc", []string{"u", "a", "b", "m", "z"}},
+		{"unknown-no-op", "banana", "", []string{"z", "a", "m", "b", "u"}},
+		{"kind-asc", "kind", "asc", []string{"a", "b", "z", "u", "m"}}, // at < every < cron < unknown < ""
+		{"kind-desc", "kind", "desc", []string{"m", "u", "z", "b", "a"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
